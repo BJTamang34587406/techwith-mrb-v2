@@ -16,8 +16,8 @@ const projects = [
   ['Microsoft 365 Operations','Cloud','Supported business accounts, devices, email, permissions and cloud services.'],
   ['Business Technology Solutions','Development','Developing websites, custom business applications and automation solutions.']
 ];
-const contactEmail = ''; // Set your business contact email before enabling direct email enquiries.
-const bookingUrl = ''; // Paste your published appointment scheduling URL here.
+const FORMSPREE_ENDPOINT = 'https://formspree.io/f/REPLACE_WITH_FORM_ID';
+const CALENDLY_URL = 'https://calendly.com/REPLACE_WITH_USERNAME/it-support';
 
 function Scene() {
   const ref=useRef(null);
@@ -36,14 +36,20 @@ function Scene() {
 function App(){
   const [menu,setMenu]=useState(false),[service,setService]=useState('IT Support & Repairs');
   const [message,setMessage]=useState('');
-  const send=e=>{
+  const [sending,setSending]=useState(false);
+  const send=async e=>{
     e.preventDefault();
-    if(!contactEmail){setMessage('Online enquiries are being configured. Please use the booking option once available.');return;}
-    const d=new FormData(e.currentTarget);
-    const subject=encodeURIComponent('TechWith Mr.B enquiry — '+d.get('service'));
-    const body=encodeURIComponent('Name: '+d.get('name')+'\nReply email: '+d.get('email')+'\nService: '+d.get('service')+'\nMessage: '+d.get('message'));
-    window.location.href='mailto:'+contactEmail+'?subject='+subject+'&body='+body;
-    setMessage('Your email application should open with the enquiry prepared. Please press Send there.');
+    if(FORMSPREE_ENDPOINT.includes('REPLACE_WITH_FORM_ID')){setMessage('The enquiry form is ready, but its Formspree connection still needs to be configured.');return;}
+    const form=e.currentTarget, data=new FormData(form);
+    if(data.get('_gotcha')) return;
+    setSending(true);setMessage('');
+    try{
+      const response=await fetch(FORMSPREE_ENDPOINT,{method:'POST',body:data,headers:{Accept:'application/json'}});
+      if(!response.ok) throw new Error('Submission failed');
+      form.reset();setService('IT Support & Repairs');
+      setMessage('Thanks — your enquiry has been sent. I will get back to you soon.');
+    }catch(err){setMessage('Sorry, your enquiry could not be sent. Please try again.');}
+    finally{setSending(false);}
   };
   return <>
     <header className="topbar"><a className="brand" href="#home">TECHWITH <span>MR.B</span><small>PERTH / AUSTRALIA</small></a>
@@ -69,8 +75,8 @@ function App(){
       <section id="services" className="section services"><div className="section-label">02 / WHAT I OFFER</div><h2>TECH PROBLEMS?<br/><i>LET'S SOLVE THEM.</i></h2><p className="section-intro">Practical IT and digital solutions for Perth individuals and small businesses.</p><div className="service-grid">{services.map(([num,title,desc])=><article className="service-card" key={num}><span className="card-num">{num} / SERVICE</span><h3>{title}</h3><p>{desc}</p><a href="#contact" onClick={()=>setService(title)}>LET'S TALK ↗</a></article>)}</div></section>
       <section id="work" className="section work"><div className="section-label">03 / SELECTED EXPERIENCE</div><h2>BEHIND THE <i>SCREENS.</i></h2><p className="section-intro">Representative technical work and areas of experience. Client names and confidential details are intentionally omitted.</p><div className="project-grid">{projects.map(([title,tag,desc],i)=><article className="project-card" key={title}><div className="project-art"><span>{String(i+1).padStart(2,'0')}</span><div className="orb"/></div><div className="project-info"><small>{tag.toUpperCase()}</small><h3>{title}</h3><p>{desc}</p></div></article>)}</div></section>
       <section id="skills" className="section skills"><div className="section-label">04 / MY TOOLKIT</div><h2>THE TOOLS <i>I WORK WITH.</i></h2><div className="skill-groups">{[['SUPPORT & SYSTEMS','Windows','Remote Support','Microsoft 365','SharePoint','Synology NAS'],['NETWORK & SECURITY','Networking','Sophos Central','Endpoint Monitoring','Access Control','SMB'],['BUILD & AUTOMATE','Web Development','Business Apps','AI Automation','GitHub','Cloudflare']].map(([label,...items])=><div className="skill-group" key={label}><h3>{label}</h3><div className="pill-row">{items.map(x=><span key={x}>{x}</span>)}</div></div>)}</div></section>
-      <section id="contact" className="section contact"><div className="section-label">05 / LET'S CONNECT</div><h2>HAVE A TECH <i>CHALLENGE?</i></h2><p className="section-intro">Tell me what you're working on. We'll find a practical next step.</p><div className="contact-grid"><form onSubmit={send}><label>Your name<input name="name" required placeholder="Your name"/></label><label>Email address<input type="email" name="email" required placeholder="you@example.com"/></label><label>How can I help?<select name="service" value={service} onChange={e=>setService(e.target.value)}>{services.map(([,title])=><option key={title}>{title}</option>)}</select></label><label>Tell me more<textarea name="message" required rows="5" placeholder="Describe your issue or project"/></label><button className="button primary" type="submit">PREPARE ENQUIRY ↗</button><p className="form-note" role="status">{message||'Enquiry email delivery is not yet configured. Do not submit sensitive credentials or private client data.'}</p></form>
-        <aside className="booking-panel"><span className="eyebrow">BOOK A SESSION</span><h3>LET'S MAKE IT HAPPEN.</h3><p>Need troubleshooting or want to discuss a project? Appointment scheduling will be available once a booking calendar is connected.</p>{bookingUrl?<a className="button outline" href={bookingUrl} target="_blank" rel="noopener noreferrer">VIEW AVAILABLE TIMES ↗</a>:<span className="coming-soon">ONLINE BOOKINGS COMING SOON</span>}<div className="booking-location">📍 PERTH, WESTERN AUSTRALIA</div></aside></div></section>
+      <section id="contact" className="section contact"><div className="section-label">05 / LET'S CONNECT</div><h2>HAVE A TECH <i>CHALLENGE?</i></h2><p className="section-intro">Tell me what you're working on. We'll find a practical next step.</p><div className="contact-grid"><form onSubmit={send}><label>Your name<input name="name" required placeholder="Your name"/></label><label>Email address<input type="email" name="email" required placeholder="you@example.com"/></label><label>How can I help?<select name="service" value={service} onChange={e=>setService(e.target.value)}>{services.map(([,title])=><option key={title}>{title}</option>)}</select></label><label>Tell me more<textarea name="message" required rows="5" placeholder="Describe your issue or project"/></label><label className="honeypot" aria-hidden="true">Leave this field empty<input name="_gotcha" tabIndex="-1" autoComplete="off"/></label><button className="button primary" type="submit" disabled={sending}>{sending?'SENDING…':'SEND ENQUIRY ↗'}</button><p className="form-note" role="status">{message||'Your details are used only to respond to this enquiry. Please do not include passwords or sensitive client information.'}</p></form>
+        <aside className="booking-panel"><span className="eyebrow">BOOK A SESSION</span><h3>CHOOSE A TIME<br/>THAT WORKS.</h3><p>Pick an available appointment time for IT support or an initial project discussion.</p>{CALENDLY_URL.includes('REPLACE_WITH_USERNAME')?<div className="calendar-placeholder"><strong>ONLINE CALENDAR SETUP</strong><span>Connect your Calendly booking link to display live availability here.</span></div>:<div className="calendar-embed"><iframe title="Book an appointment with TechWith Mr.B" src={CALENDLY_URL+'?hide_gdpr_banner=1&background_color=10182a&text_color=f1f3fc&primary_color=79dce9'} loading="lazy" referrerPolicy="strict-origin-when-cross-origin"/></div>}<a className="button outline" href={CALENDLY_URL.includes('REPLACE_WITH_USERNAME')?'https://calendly.com/':CALENDLY_URL} target="_blank" rel="noopener noreferrer">{CALENDLY_URL.includes('REPLACE_WITH_USERNAME')?'CREATE FREE CALENDAR ↗':'OPEN FULL BOOKING PAGE ↗'}</a><div className="booking-location">📍 PERTH, WESTERN AUSTRALIA</div></aside></div></section>
     </main><footer><a className="brand" href="#home">TECHWITH <span>MR.B</span></a><p>© {new Date().getFullYear()} TechWith Mr.B · Perth WA</p><a href="#home">BACK TO TOP ↑</a></footer>
   </>;
 }
